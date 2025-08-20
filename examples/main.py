@@ -8,7 +8,7 @@ from google.cloud import tasks_v2
 app = FastAPI()
 
 queue_path = "projects/fastapi-cloud-tasks/locations/us-east4/queues/tests"
-base_url = "base_url"
+base_url = "BASE_URL"
 
 DelayedRoute = DelayedRouteBuilder(
     base_url=base_url,
@@ -24,9 +24,15 @@ delayed_router = APIRouter(route_class=DelayedRoute)
 async def timed():
     return {"message": "It's the time of my life"}
 
-@delayed_router.get("/delay")
-async def delay():
+@delayed_router.post("/delay")
+async def delay_route():
+    print("Task received:")
     return {"message": "delay"}
+
+@app.get("/trigger")
+async def test():
+    delay_route.delay(5)
+    return 
 
 app.include_router(hello_router)
 app.include_router(delayed_router)
