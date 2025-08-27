@@ -1,24 +1,33 @@
 from fastapi import FastAPI, APIRouter
-from fastapi_cloud_tasks.core.hello_route import HelloRoute
+from fastapi_cloud_tasks.hello_route import HelloRoute
 
-from fastapi_cloud_tasks.core.delayed_route import DelayedRouteBuilder
-from google.cloud import tasks_v2
+from fastapi_cloud_tasks.delayed_route import GCPDelayedRouteBuilder
+from fastapi_cloud_tasks.scheduled_route import GCPScheduleRouteBuilder
+from google.cloud import tasks_v2, scheduler_v1
 
 
 app = FastAPI()
 
 queue_path = "projects/fastapi-cloud-tasks/locations/us-east4/queues/tests"
 base_url = "BASE_URL"
+location_path = "projects/fastapi-cloud-tasks/locations/us-east4"
 
-DelayedRoute = DelayedRouteBuilder(
+DelayedRoute = GCPDelayedRouteBuilder(
     base_url=base_url,
     queue_path=queue_path,
     auto_create_queue=True,
     client=tasks_v2.CloudTasksClient()
 )
 
+ScheduledRoute = GCPScheduleRouteBuilder(
+    base_url=base_url,
+    location_path=location_path,
+    client=scheduler_v1.CloudSchedulerClient()
+)
+
 hello_router = APIRouter(route_class=HelloRoute)
 delayed_router = APIRouter(route_class=DelayedRoute)
+scheduled_route = APIRouter(route_class=ScheduledRoute)
 
 @hello_router.get("/hello")
 async def timed():
@@ -29,6 +38,16 @@ async def delay_route():
     print("Task received:")
     return {"message": "delay"}
 
+@scheduled_route.post("/schedule")
+async def schedule_route():
+    print("Scheduled!")
+    return {"message": "schedule"}
+
+@app.get("/schedule_trigger")
+async def schedule_trigger():
+    schedule_route.schedule(name="test", schedule="* * * * *")
+    return
+
 @app.get("/trigger")
 async def test():
     delay_route.delay(5)
@@ -36,3 +55,4 @@ async def test():
 
 app.include_router(hello_router)
 app.include_router(delayed_router)
+app.include_router(scheduled_route)

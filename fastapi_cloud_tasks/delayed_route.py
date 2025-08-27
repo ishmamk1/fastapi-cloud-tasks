@@ -1,22 +1,17 @@
 from typing import Callable, Type
 
-from fastapi import Request, Response, requests
+from fastapi import Request, Response
 from fastapi.routing import APIRoute
 from google.cloud import tasks_v2
 
 from fastapi_cloud_tasks.providers.gcp.utils import validate_queue
 from fastapi_cloud_tasks.providers.gcp.delayer import gcp_create_delay_task
 
+import logging
 
-from typing import Callable, Type
-from fastapi.routing import APIRoute
-from google.cloud import tasks_v2
+logger = logging.getLogger(__name__)
 
-import time
-
-import requests
-
-def DelayedRouteBuilder(
+def GCPDelayedRouteBuilder(
     *,
     base_url: str,
     queue_path: str,
@@ -24,8 +19,7 @@ def DelayedRouteBuilder(
     auto_create_queue: bool = True,
 ) -> Type[APIRoute]:
     
-    if client is None:
-        client = tasks_v2.CloudTasksClient()
+    client = client or tasks_v2.CloudTasksClient()
     
     if auto_create_queue:
         validate_queue(client=client, queue_path=queue_path)
@@ -68,7 +62,7 @@ def DelayedRouteBuilder(
                         "ngrok-skip-browser-warning": "true"
                     }
                 )
-            except Exception as e:
-                print("Error sending request:", e)
+            except Exception as exc:
+                logger.exception("Failed to enqueue Cloud Task: %s", exc)
 
     return DelayedRoute

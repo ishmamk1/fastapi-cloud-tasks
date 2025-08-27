@@ -1,3 +1,4 @@
+from urllib.parse import urlparse
 from google.cloud import tasks_v2
 from google.protobuf import timestamp_pb2
 
@@ -5,6 +6,11 @@ import json
 from datetime import datetime, timezone, timedelta
 
 from fastapi_cloud_tasks.providers.gcp.exceptions import BadMethodException
+from google.api_core.exceptions import GoogleAPICallError
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 def gcp_create_delay_task(
     client: tasks_v2.CloudTasksClient,
@@ -16,30 +22,55 @@ def gcp_create_delay_task(
     timeout: float = 10.0,
     headers: dict | None = None
 ):
+    # --- Validate inputs ---
+    if not queue_path:
+        raise ValueError("queue_path must not be empty")
+    if not endpoint_url or not urlparse(endpoint_url).scheme:
+        raise ValueError(f"Invalid endpoint_url: {endpoint_url}")
+    if delay_seconds < 0:
+        raise ValueError("delay_seconds must be >= 0")
+    if timeout <= 0:
+        raise ValueError("timeout must be > 0")
+    
+    try:
+        http_request = tasks_v2.HttpRequest(
+            url = endpoint_url,
+            http_method = _convert_http_method_type(http_method),
+            headers = headers
+        )
 
-    http_request = tasks_v2.HttpRequest(
-        url = endpoint_url,
-        http_method = _convert_http_method_type(http_method),
-        headers = headers
-    )
+        if body:
+            http_request.body = json.dumps(body).encode()
 
-    if body:
-        http_request.body = json.dumps(body).encode()
-    print(str(delay_seconds) + "seconds")
-    scheduled_date = _get_scheduled_delay_date(delay_seconds=delay_seconds)
+        scheduled_date = _get_scheduled_delay_date(delay_seconds=delay_seconds)
 
-    delay_task = tasks_v2.Task(
-        http_request=http_request,
-        schedule_time=scheduled_date
-    )
+        delay_task = tasks_v2.Task(
+            http_request=http_request,
+            schedule_time=scheduled_date
+        )
 
-    response = client.create_task(
-        task=delay_task,
-        parent=queue_path,
-        timeout=timeout
-    )
+        response = client.create_task(
+            task=delay_task,
+            parent=queue_path,
+            timeout=timeout
+        )
 
-    return response
+        logger.debug(
+            "Created Cloud Task: queue=%s, url=%s, delay=%ss, method=%s",
+            queue_path,
+            endpoint_url,
+            delay_seconds,
+            http_method,
+        )
+
+        return response
+
+    except GoogleAPICallError as exc:
+        logger.exception("Google API call failed while creating Cloud Task")
+        raise RuntimeError(f"Failed to create Cloud Task: {exc}") from exc
+    except Exception as exc:
+        logger.exception("Unexpected error while creating Cloud Task")
+        raise RuntimeError(f"Unexpected error while creating Cloud Task: {exc}") from exc
 
 
 def _get_scheduled_delay_date(delay_seconds: int):
@@ -65,11 +96,7 @@ def _convert_http_method_type(http_method):
         "PATCH": tasks_v2.HttpMethod.PATCH,
         "OPTIONS": tasks_v2.HttpMethod.OPTIONS,
     }
-    # Only crash if we're being bound
-    """
-    if len(methods) > 1:
-        raise BadMethodException("Can't trigger task with multiple methods")
-    """
+
     method = methodMap.get(http_method, None)
 
     if method is None:

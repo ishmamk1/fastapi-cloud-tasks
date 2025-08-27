@@ -1,5 +1,6 @@
 from google.cloud import tasks_v2
 from google.api_core.exceptions import NotFound
+from google.cloud.scheduler_v1.types import HttpMethod
 
 def validate_queue(client: tasks_v2.CloudTasksClient, queue_path: str):
     if client == None:
@@ -21,5 +22,20 @@ def validate_queue(client: tasks_v2.CloudTasksClient, queue_path: str):
         
         created_queue = client.create_queue(parent=parent, queue=queue)
         print(f"Queue Created: {created_queue.name}")
+
+def map_http_method_to_http_type(http_method: str) -> HttpMethod:
+    method_map = {
+        "POST": HttpMethod.POST,
+        "GET": HttpMethod.GET,
+        "PUT": HttpMethod.PUT,
+        "DELETE": HttpMethod.DELETE,
+        "PATCH": HttpMethod.PATCH,
+    }
+    
+    if http_method not in method_map:
+        raise ValueError("Invalid HTTP Method")
+
+    return method_map[http_method]
+
 
 
