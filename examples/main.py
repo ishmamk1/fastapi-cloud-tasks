@@ -9,7 +9,7 @@ from google.cloud import tasks_v2, scheduler_v1
 app = FastAPI()
 
 queue_path = "projects/fastapi-cloud-tasks/locations/us-east4/queues/tests"
-base_url = "BASE_URL"
+base_url = "https://f2b44bbd0eb9.ngrok-free.app"
 location_path = "projects/fastapi-cloud-tasks/locations/us-east4"
 
 DelayedRoute = GCPDelayedRouteBuilder(
@@ -45,7 +45,12 @@ async def schedule_route():
 
 @app.get("/schedule_trigger")
 async def schedule_trigger():
+    print("scheduling")
     schedule_route.schedule(name="test", schedule="* * * * *")
+    print("updating")
+    schedule_route.update_schedule(name="test", schedule="9 * * * *")
+    print("deleting")
+    schedule_route.delete_schedule(name="test")
     return
 
 @app.get("/trigger")

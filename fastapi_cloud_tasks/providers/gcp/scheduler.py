@@ -1,5 +1,6 @@
 from google.cloud import scheduler_v1
-from google.protobuf import duration_pb2
+from google.protobuf import duration_pb2, field_mask_pb2
+from google.api_core.exceptions import AlreadyExists
 import logging
 import uuid
 
@@ -20,7 +21,6 @@ def gcp_create_scheduler_job(
     timeout: float = 10.0,
     retry_config: scheduler_v1.RetryConfig = None,
     time_zone: str = "UTC",
-    force: bool = False,
     headers: dict | None = None,
 ):
     if not name:
@@ -32,7 +32,7 @@ def gcp_create_scheduler_job(
     
     request = _create_request(http_method, endpoint_url, headers)
     job_name = f"{location_path}/jobs/{name}"
-    print(job_name, schedule, base_url, location_path, client, endpoint_url, http_method)
+    logger.info(job_name, schedule, base_url, location_path, client, endpoint_url, http_method)
 
     scheduled_job = scheduler_v1.Job(
         name=job_name,
@@ -47,19 +47,56 @@ def gcp_create_scheduler_job(
         job=scheduled_job
     )
 
-    response = client.create_job(request=job_request, timeout=timeout)
-    logger.info(f"Created Cloud Scheduler job: {response.name}")
-    return response
+    try:
+        response = client.create_job(request=job_request, timeout=timeout)
+        logger.info(f"Created Cloud Scheduler job: {response.name}")
+        return response
+    except AlreadyExists:
+        logger.info(f"Job {job_name} already exists. Updating instead.")
 
-    if force:
-        pass
+        update_mask = {"paths": ["schedule", "http_target", "retry_config", "time_zone"]}
+        update_request = scheduler_v1.UpdateJobRequest(job=scheduled_job, update_mask=update_mask)
+        response = client.update_job(request=update_request, timeout=timeout)
 
+        logger.info(f"Updated Cloud Scheduler job: {response.name}")
+        return response
 
-def _delete_existing_job():
-    pass
+def gcp_update_scheduler_job(
+    name: str,
+    schedule: str,
+    location_path: str,
+    client: scheduler_v1.CloudSchedulerClient,
+    update_mask: list[str] | None = None,
+    **kwargs,
+):
 
-def _has_job_changed(request: scheduler_v1.CreateJobRequest):
-    pass
+    job_name = f"{location_path}/jobs/{name}"
+
+    job = scheduler_v1.Job(name=job_name, schedule=schedule, **kwargs)
+
+    if update_mask is None:
+        update_mask = ["schedule"] + list(kwargs.keys())
+
+    mask = field_mask_pb2.FieldMask(paths=update_mask)
+    request = scheduler_v1.UpdateJobRequest(job=job, update_mask=mask)
+
+    return client.update_job(request=request)
+
+    
+def gcp_delete_scheduler_job(
+    name: str,
+    location_path: str,
+    client: scheduler_v1.CloudSchedulerClient,
+    timeout: float | None = None,
+    metadata: list | None = None,
+):  
+    job_name = f"{location_path}/jobs/{name}"
+
+    client.delete_job(
+        name=job_name,
+        timeout=timeout,
+        metadata=metadata or {},
+    )
 
 
 def _build_default_retry_config() -> scheduler_v1.RetryConfig:
