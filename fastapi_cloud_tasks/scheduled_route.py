@@ -11,7 +11,7 @@ from fastapi_cloud_tasks.providers.gcp.scheduler import gcp_create_scheduler_job
 import logging
 
 logger = logging.getLogger(__name__)
-# TODO: FIX TO INCLUDE BODY AND ABSTRACT HEADERS
+
 def GCPScheduleRouteBuilder(
     base_url: str,
     location_path: str,
@@ -51,7 +51,9 @@ def GCPScheduleRouteBuilder(
             schedule: str,
             client = client,
             timezone: str = "UTC",
-            retry_config: scheduler_v1.RetryConfig = None
+            retry_config: scheduler_v1.RetryConfig = None,
+            headers: dict | None = None,
+            body: dict | None = None,  # <-- allow body here
         ):
             gcp_create_scheduler_job(
                 name=name,
@@ -63,10 +65,8 @@ def GCPScheduleRouteBuilder(
                 http_method=self.http_method,
                 timeout=job_create_timeout,
                 time_zone=timezone,
-                headers={ 
-                    "Content-Type": "application/json",
-                    "ngrok-skip-browser-warning": "true"
-                },
+                headers=headers,
+                body=body,
                 retry_config=retry_config
             )
 

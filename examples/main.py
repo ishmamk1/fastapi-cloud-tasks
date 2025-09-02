@@ -5,11 +5,12 @@ from fastapi_cloud_tasks.delayed_route import GCPDelayedRouteBuilder
 from fastapi_cloud_tasks.scheduled_route import GCPScheduleRouteBuilder
 from google.cloud import tasks_v2, scheduler_v1
 
+import time
 
 app = FastAPI()
 
 queue_path = "projects/fastapi-cloud-tasks/locations/us-east4/queues/tests"
-base_url = "https://f2b44bbd0eb9.ngrok-free.app"
+base_url = "https://cce0661f8962.ngrok-free.app"
 location_path = "projects/fastapi-cloud-tasks/locations/us-east4"
 
 DelayedRoute = GCPDelayedRouteBuilder(
@@ -22,7 +23,7 @@ DelayedRoute = GCPDelayedRouteBuilder(
 ScheduledRoute = GCPScheduleRouteBuilder(
     base_url=base_url,
     location_path=location_path,
-    client=scheduler_v1.CloudSchedulerClient()
+    client=scheduler_v1.CloudSchedulerClient(),
 )
 
 hello_router = APIRouter(route_class=HelloRoute)
@@ -45,9 +46,12 @@ async def schedule_route():
 
 @app.get("/schedule_trigger")
 async def schedule_trigger():
+    headers = { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" }
     print("scheduling")
-    schedule_route.schedule(name="test", schedule="* * * * *")
+    time.sleep(2)
+    schedule_route.schedule(name="test", schedule="* * * * *", headers=headers)
     print("updating")
+    time.sleep(2)
     schedule_route.update_schedule(name="test", schedule="9 * * * *")
     print("deleting")
     schedule_route.delete_schedule(name="test")

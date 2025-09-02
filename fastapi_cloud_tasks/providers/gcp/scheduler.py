@@ -22,6 +22,7 @@ def gcp_create_scheduler_job(
     retry_config: scheduler_v1.RetryConfig = None,
     time_zone: str = "UTC",
     headers: dict | None = None,
+    body: dict | None = None
 ):
     if not name:
         unique_id = uuid.uuid4()
@@ -30,7 +31,7 @@ def gcp_create_scheduler_job(
     if not retry_config:
         retry_config = _build_default_retry_config()
     
-    request = _create_request(http_method, endpoint_url, headers)
+    request = _create_request(http_method, endpoint_url, headers, body)
     job_name = f"{location_path}/jobs/{name}"
     logger.info(job_name, schedule, base_url, location_path, client, endpoint_url, http_method)
 
@@ -111,7 +112,7 @@ def _build_default_retry_config() -> scheduler_v1.RetryConfig:
     return retry_config
     
 
-def _create_request(http_method: str, endpoint_url: str, headers: dict | None = None) -> scheduler_v1.HttpTarget:
+def _create_request(http_method: str, endpoint_url: str, headers: dict | None = None, body: dict | None = None) -> scheduler_v1.HttpTarget:
     try:
         request = scheduler_v1.HttpTarget()
         request.http_method = map_http_method_to_http_type(http_method)
@@ -119,6 +120,9 @@ def _create_request(http_method: str, endpoint_url: str, headers: dict | None = 
         
         if headers:
             request.headers = headers
+        
+        if body:
+            request.body = body
         
         return request
     except Exception as error:
