@@ -10,7 +10,7 @@ import time
 app = FastAPI()
 
 queue_path = "projects/fastapi-cloud-tasks/locations/us-east4/queues/tests"
-base_url = "https://cce0661f8962.ngrok-free.app"
+base_url = "https://661f48465a53.ngrok-free.app"
 location_path = "projects/fastapi-cloud-tasks/locations/us-east4"
 
 DelayedRoute = GCPDelayedRouteBuilder(
@@ -59,7 +59,11 @@ async def schedule_trigger():
 
 @app.get("/trigger")
 async def test():
-    delay_route.delay(5)
+    headers = { 
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
+    }
+    delay_route.delay(5, headers=headers)
     return 
 
 app.include_router(hello_router)
