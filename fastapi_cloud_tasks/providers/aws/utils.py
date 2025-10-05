@@ -75,7 +75,7 @@ def create_sqs_queue(queue_name: str):
     print("Queue URL", queue_url)
     return queue_url
 
-def create_sqs_lambda_role(role_name="SqsLambdaRole"):
+def create_aws_cloud_tasks_role(role_name="FastAPICloudTasksRole"):
     iam = boto3.client("iam")
 
     assume_policy = {
@@ -99,20 +99,31 @@ def create_sqs_lambda_role(role_name="SqsLambdaRole"):
         response = iam.get_role(RoleName=role_name)
         role_arn = response["Role"]["Arn"]
 
+    # Expanded policy to include SQS, Lambda, and EventBridge permissions
     policy = {
         "Version": "2012-10-17",
         "Statement": [
             {
                 "Effect": "Allow",
                 "Action": [
+                    # SQS
                     "sqs:SendMessage",
                     "sqs:ReceiveMessage",
                     "sqs:DeleteMessage",
                     "sqs:GetQueueAttributes",
+
+                    # Lambda
                     "lambda:CreateFunction",
                     "lambda:InvokeFunction",
                     "lambda:GetFunction",
-                    "iam:PassRole"
+                    "iam:PassRole",
+
+                    # EventBridge
+                    "events:PutRule",
+                    "events:PutTargets",
+                    "events:DeleteRule",
+                    "events:RemoveTargets",
+                    "events:DescribeRule"
                 ],
                 "Resource": "*"
             }
@@ -121,7 +132,7 @@ def create_sqs_lambda_role(role_name="SqsLambdaRole"):
 
     iam.put_role_policy(
         RoleName=role_name,
-        PolicyName="SqsLambdaFullAccessPolicy",
+        PolicyName="SqsLambdaEventBridgeFullAccessPolicy",
         PolicyDocument=json.dumps(policy)
     )
 

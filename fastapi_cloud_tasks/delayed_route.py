@@ -10,7 +10,7 @@ from fastapi_cloud_tasks.providers.gcp.delayer import gcp_create_delay_task
 import boto3
 from fastapi_cloud_tasks.providers.aws.delayer import aws_create_delay_task
 
-from fastapi_cloud_tasks.providers.aws.utils import create_sqs_lambda_role, deploy_lambda, link_lambda_sqs, create_sqs_queue
+from fastapi_cloud_tasks.providers.aws.utils import create_aws_cloud_tasks_role, deploy_lambda, link_lambda_sqs, create_sqs_queue
 
 import logging
 
@@ -72,12 +72,11 @@ def GCPDelayedRouteBuilder(
 def AWSDelayedRouteBuilder(
     *,
     base_url: str,
-    sqs_client=None,
     lambda_client=None,
 ) -> Type[APIRoute]:
     
-    sqs_client = sqs_client or boto3.client("sqs")
-    lambda_client = lambda_client or boto3.client("lambda")
+    sqs_client = boto3.client("sqs")
+    lambda_client = boto3.client("lambda")
 
     class DelayedRoute(APIRoute):
         def __init__(self, *args, **kwargs):
@@ -86,7 +85,7 @@ def AWSDelayedRouteBuilder(
             self.sqs_client = sqs_client
             self.lambda_client = lambda_client
             self.url_endpoint = f"{self.base_url}{self.path}"
-            self.role_arn = create_sqs_lambda_role()
+            self.role_arn = create_aws_cloud_tasks_role()
             self.lambda_arn = deploy_lambda(function_name="DelayerLambda", role_arn=self.role_arn)
             self.queue_url = create_sqs_queue(queue_name="Delay-Queue")
 
